@@ -60,11 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <main className="mm-container mm-page pb-24 md:pb-10">{children}</main>
 
-        <footer className="border-t border-zinc-200/70 bg-white">
-          <div className="mm-container py-6 text-xs text-zinc-500">
-            MVP：本地数据 + `.ics` 导出（先把提醒落到系统日历）。
-          </div>
-        </footer>
+        <footer className="border-t border-zinc-200/70 bg-white" />
       </body>
     </html>
   );

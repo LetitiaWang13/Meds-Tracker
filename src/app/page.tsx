@@ -153,7 +153,6 @@ export default function HomePage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-sm font-semibold">今日行程</div>
-              <div className="mt-1 text-sm text-zinc-600">仅展示今天必须要处理的事项。</div>
             </div>
             <span className="mm-pill">{agendaItems.length}</span>
           </div>

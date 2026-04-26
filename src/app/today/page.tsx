@@ -108,6 +108,7 @@ export default function TodayPage() {
                     width={56}
                     height={56}
                     className="h-14 w-14 shrink-0 rounded-2xl border border-zinc-200/70 object-cover"
+                    unoptimized={(d.imageUrl || "").startsWith("data:")}
                   />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">{d.time}</div>

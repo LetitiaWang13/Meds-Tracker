@@ -2,7 +2,7 @@ const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 export default function CalendarPage() {
-  const icalUrl = `${baseUrl.replace(/\\/$/, "")}/api/ical`;
+  const icalUrl = `${baseUrl.replace(/\/$/, "")}/api/ical`;
 
   return (
     <div className="space-y-4">

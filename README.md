@@ -1,6 +1,6 @@
-# 慢病用药小管家（Med Minder）
+# 慢病用药小管家（Meds Tracker）
 
-面向慢病患者的“用药计划 + 到点提醒 + 服药打卡 + 续方提醒”网页应用。
+面向慢病患者的“用药计划 + 到点提醒 + 服药打卡 + 续方提醒”的网页应用。
 
 Demo: https://meds-tracker-xi.vercel.app/
 

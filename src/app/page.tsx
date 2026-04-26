@@ -32,7 +32,11 @@ export default function HomePage() {
     .slice()
     .sort((a, b) => a.time.localeCompare(b.time))
     .slice(0, 3)
-    .map((d) => ({ time: d.time, name: d.medicationName, detail: `${d.dosageText} · ${d.amountText}` }));
+    .map((d) => ({
+      time: d.time,
+      name: d.medicationName,
+      detail: `${d.dosageText} · ${d.amountPerDose} ${d.unit}`
+    }));
 
   const refillAlerts = [
     { name: "氨氯地平片", left: 1, unit: "片", lead: 5, severity: "warn" as const },

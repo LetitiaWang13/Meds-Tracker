@@ -16,7 +16,7 @@ export default function MedicationsPage() {
   const [editingInfoMed, setEditingInfoMed] = useState<MmMedication | null>(null);
   const [editName, setEditName] = useState("");
   const [editDosageText, setEditDosageText] = useState("");
-  const [editAmountText, setEditAmountText] = useState("");
+  const [editAmountPerDose, setEditAmountPerDose] = useState<number>(1);
   const [editImageUrl, setEditImageUrl] = useState<string | undefined>(undefined);
 
   const [editingSupplyMed, setEditingSupplyMed] = useState<MmMedication | null>(null);
@@ -27,7 +27,7 @@ export default function MedicationsPage() {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDosageText, setNewDosageText] = useState("");
-  const [newAmountText, setNewAmountText] = useState("1 片");
+  const [newAmountPerDose, setNewAmountPerDose] = useState<number>(1);
   const [newImageUrl, setNewImageUrl] = useState<string | undefined>(undefined);
   const [newSupplyOnHand, setNewSupplyOnHand] = useState<number>(18);
   const [newSupplyUnit, setNewSupplyUnit] = useState("片");
@@ -91,7 +91,7 @@ export default function MedicationsPage() {
     setEditingInfoMed(med);
     setEditName(med.name);
     setEditDosageText(med.dosageText);
-    setEditAmountText(med.amountText);
+    setEditAmountPerDose(med.amountPerDose ?? 1);
     setEditImageUrl(med.imageUrl);
   }
 
@@ -100,7 +100,7 @@ export default function MedicationsPage() {
     mmUpdateMedication(editingInfoMed.id, {
       name: editName,
       dosageText: editDosageText,
-      amountText: editAmountText,
+      amountPerDose: Number(editAmountPerDose) || 1,
       imageUrl: editImageUrl
     });
     setEditingInfoMed(null);
@@ -126,7 +126,7 @@ export default function MedicationsPage() {
     setAdding(true);
     setNewName("");
     setNewDosageText("");
-    setNewAmountText("1 片");
+    setNewAmountPerDose(1);
     setNewImageUrl(undefined);
     setNewSupplyOnHand(18);
     setNewSupplyUnit("片");
@@ -174,7 +174,7 @@ export default function MedicationsPage() {
     mmAddMedication({
       name,
       dosageText: dosage,
-      amountText: newAmountText.trim() || "1 片",
+      amountPerDose: Number(newAmountPerDose) || 1,
       imageUrl: newImageUrl,
       intervalDays: newIntervalDays,
       times: newTimes.length ? newTimes : ["08:00"],
@@ -223,7 +223,9 @@ export default function MedicationsPage() {
                     {m.dosageText} · {intervalText} · {timeText}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="mm-pill">{m.amountText}/次</span>
+                    <span className="mm-pill">
+                      {Number.isFinite(m.amountPerDose) ? m.amountPerDose : 1} {s?.unit || "片"}/次
+                    </span>
                     <span className="mm-pill">库存：{s ? `${s.onHand} ${s.unit}` : "—"}</span>
                   </div>
                 </div>
@@ -340,7 +342,14 @@ export default function MedicationsPage() {
 
                 <label className="block">
                   <div className="text-xs font-medium text-zinc-500">每次用量</div>
-                  <input className="mt-2 mm-input" value={editAmountText} onChange={(e) => setEditAmountText(e.target.value)} />
+                  <input
+                    className="mt-2 mm-input"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={Number.isFinite(editAmountPerDose) ? editAmountPerDose : 1}
+                    onChange={(e) => setEditAmountPerDose(Number(e.target.value))}
+                  />
                 </label>
 
                 <div className="block">
@@ -474,12 +483,23 @@ export default function MedicationsPage() {
 
               <label className="block">
                 <div className="text-xs font-medium text-zinc-500">规格</div>
-                <input className="mt-2 mm-input" value={newDosageText} onChange={(e) => setNewDosageText(e.target.value)} placeholder="例如：20mg/片" />
+                <input className="mt-2 mm-input" value={newDosageText} onChange={(e) => setNewDosageText(e.target.value)} placeholder="例如：20mg" />
               </label>
 
               <label className="block">
                 <div className="text-xs font-medium text-zinc-500">每次用量</div>
-                <input className="mt-2 mm-input" value={newAmountText} onChange={(e) => setNewAmountText(e.target.value)} placeholder="例如：1 片 / 2 粒" />
+                <input
+                  className="mt-2 mm-input"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={Number.isFinite(newAmountPerDose) ? newAmountPerDose : 1}
+                  onChange={(e) => setNewAmountPerDose(Number(e.target.value))}
+                  placeholder="例如：1 / 2 / 0.5"
+                />
+                <div className="mt-2 text-sm text-zinc-600">
+                  单位将使用库存的单位：<span className="font-semibold text-zinc-900">{newSupplyUnit || "片"}</span>
+                </div>
               </label>
 
               <div className="block">

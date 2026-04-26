@@ -4,7 +4,7 @@ export type MmMedication = {
   id: string;
   name: string;
   dosageText: string;
-  amountText: string; // 默认每次用量展示（MVP）
+  amountPerDose: number; // 每次用量（数字）
   imageUrl?: string;
 };
 
@@ -32,7 +32,8 @@ export type MmDose = {
   time: string; // HH:mm
   medicationName: string;
   dosageText: string; // e.g. 20mg/片
-  amountText: string; // e.g. 1 片
+  amountPerDose: number;
+  unit: string;
   imageUrl?: string;
   medicationId?: string;
   status: MmDoseStatus;
@@ -93,6 +94,30 @@ export function mmLoadState(): MmState {
   if (!Array.isArray(parsed.supplies)) parsed.supplies = [];
   if (!Array.isArray(parsed.plans)) parsed.plans = [];
   if (!Array.isArray(parsed.actions)) parsed.actions = [];
+
+  // Backward-compat: older data used amountText like "2 粒"
+  parsed.medications = parsed.medications.map((m: any) => {
+    if (typeof m.amountPerDose === "number") return m as MmMedication;
+    const txt = typeof m.amountText === "string" ? m.amountText : "";
+    const n = Number.parseFloat(String(txt).match(/[\d.]+/)?.[0] ?? "1");
+    return {
+      ...m,
+      amountPerDose: Number.isFinite(n) ? n : 1
+    } as MmMedication;
+  });
+
+  parsed.doses = parsed.doses.map((d: any) => {
+    if (typeof d.amountPerDose === "number" && typeof d.unit === "string") return d as MmDose;
+    const txt = typeof d.amountText === "string" ? d.amountText : "";
+    const n = Number.parseFloat(String(txt).match(/[\d.]+/)?.[0] ?? "1");
+    const unit = String(txt).replace(/[\d.\s]/g, "") || "片";
+    return {
+      ...d,
+      amountPerDose: Number.isFinite(n) ? n : 1,
+      unit
+    } as MmDose;
+  });
+
   return parsed;
 }
 
@@ -133,6 +158,7 @@ function mmEnsureDosesForDate(state: MmState, date: string) {
   if (existing.length > 0) return state;
 
   const medsById = new Map(state.medications.map((m) => [m.id, m]));
+  const supplyByMed = new Map(state.supplies.map((s) => [s.medicationId, s]));
   const duePlans = state.plans.filter((p) => {
     const interval = Math.max(1, Math.floor(p.intervalDays));
     const diff = mmDaysBetween(p.startDate, date);
@@ -142,6 +168,7 @@ function mmEnsureDosesForDate(state: MmState, date: string) {
   const newDoses: MmDose[] = duePlans.flatMap((p) => {
     const med = medsById.get(p.medicationId);
     if (!med) return [];
+    const unit = supplyByMed.get(med.id)?.unit || "片";
     const times = (p.times?.length ? p.times : ["08:00"]).slice().sort();
     return times.map((time) => ({
       id: mmId("dose"),
@@ -150,7 +177,8 @@ function mmEnsureDosesForDate(state: MmState, date: string) {
       medicationId: med.id,
       medicationName: med.name,
       dosageText: med.dosageText,
-      amountText: med.amountText,
+      amountPerDose: Number.isFinite(med.amountPerDose) ? med.amountPerDose : 1,
+      unit,
       imageUrl: med.imageUrl,
       status: "pending" as const,
       updatedAt: Date.now()
@@ -170,6 +198,7 @@ function mmRegenerateDosesForMedicationOnDate(state: MmState, medicationId: stri
   const med = state.medications.find((m) => m.id === medicationId);
   const plan = state.plans.find((p) => p.medicationId === medicationId);
   if (!med || !plan) return { ...state, doses: others } satisfies MmState;
+  const unit = state.supplies.find((s) => s.medicationId === medicationId)?.unit || "片";
 
   const diff = mmDaysBetween(plan.startDate, date);
   const interval = Math.max(1, Math.floor(plan.intervalDays));
@@ -184,7 +213,8 @@ function mmRegenerateDosesForMedicationOnDate(state: MmState, medicationId: stri
     medicationId: med.id,
     medicationName: med.name,
     dosageText: med.dosageText,
-    amountText: med.amountText,
+    amountPerDose: Number.isFinite(med.amountPerDose) ? med.amountPerDose : 1,
+    unit,
     imageUrl: med.imageUrl,
     status: "pending",
     updatedAt: Date.now()
@@ -199,6 +229,7 @@ function mmRegenerateDosesForMedicationOnDate(state: MmState, medicationId: stri
 function mmUpdateDoseDisplayForMedication(state: MmState, medicationId: string, date: string) {
   const med = state.medications.find((m) => m.id === medicationId);
   if (!med) return state;
+  const unit = state.supplies.find((s) => s.medicationId === medicationId)?.unit || "片";
   const next = {
     ...state,
     doses: state.doses.map((d) => {
@@ -209,7 +240,8 @@ function mmUpdateDoseDisplayForMedication(state: MmState, medicationId: string, 
         ...d,
         medicationName: med.name,
         dosageText: med.dosageText,
-        amountText: med.amountText,
+        amountPerDose: Number.isFinite(med.amountPerDose) ? med.amountPerDose : d.amountPerDose ?? 1,
+        unit,
         imageUrl: med.imageUrl
       };
     })
@@ -232,9 +264,9 @@ export function mmEnsureDemoSeed(now = new Date()) {
     version: 1,
     actions: [],
     medications: [
-      { id: "med-1", name: "二甲双胍", dosageText: "500mg/粒", amountText: "2 粒", imageUrl: "/demo/med-1.png" },
-      { id: "med-2", name: "氨氯地平片", dosageText: "5mg", amountText: "1 片", imageUrl: "/demo/med-2.png" },
-      { id: "med-3", name: "阿托伐他汀", dosageText: "20mg/片", amountText: "1 片", imageUrl: "/demo/med-3.png" }
+      { id: "med-1", name: "二甲双胍", dosageText: "500mg/粒", amountPerDose: 2, imageUrl: "/demo/med-1.png" },
+      { id: "med-2", name: "氨氯地平片", dosageText: "5mg", amountPerDose: 1, imageUrl: "/demo/med-2.png" },
+      { id: "med-3", name: "阿托伐他汀", dosageText: "20mg/片", amountPerDose: 1, imageUrl: "/demo/med-3.png" }
     ],
     supplies: [
       { id: "sup-1", medicationId: "med-1", onHand: 45, unit: "粒", refillLeadDays: 5, updatedAt: Date.now() },
@@ -328,7 +360,7 @@ export function mmUpsertPlanForMedication(medicationId: string, patch: Pick<MmPl
 export function mmAddMedication(input: {
   name: string;
   dosageText: string;
-  amountText: string;
+  amountPerDose: number;
   imageUrl?: string;
   intervalDays: number;
   times: string[];
@@ -344,7 +376,7 @@ export function mmAddMedication(input: {
     id: medId,
     name: input.name.trim(),
     dosageText: input.dosageText.trim(),
-    amountText: input.amountText.trim(),
+    amountPerDose: Number.isFinite(input.amountPerDose) ? Math.max(0, input.amountPerDose) : 1,
     imageUrl: input.imageUrl
   };
 
@@ -378,7 +410,10 @@ export function mmAddMedication(input: {
   return withDoses;
 }
 
-export function mmUpdateMedication(medicationId: string, patch: Partial<Pick<MmMedication, "name" | "dosageText" | "amountText" | "imageUrl">>) {
+export function mmUpdateMedication(
+  medicationId: string,
+  patch: Partial<Pick<MmMedication, "name" | "dosageText" | "amountPerDose" | "imageUrl">>
+) {
   const state = mmLoadState();
   const existing = state.medications.find((m) => m.id === medicationId);
   if (!existing) return state;
@@ -389,7 +424,10 @@ export function mmUpdateMedication(medicationId: string, patch: Partial<Pick<MmM
           ...m,
           name: (patch.name ?? m.name).trim(),
           dosageText: (patch.dosageText ?? m.dosageText).trim(),
-          amountText: (patch.amountText ?? m.amountText).trim(),
+          amountPerDose:
+            typeof patch.amountPerDose === "number"
+              ? Math.max(0, patch.amountPerDose)
+              : m.amountPerDose,
           imageUrl: patch.imageUrl ?? m.imageUrl
         }
       : m

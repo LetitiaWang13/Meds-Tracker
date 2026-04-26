@@ -113,7 +113,7 @@ export default function TodayPage() {
                   <div className="min-w-0">
                     <div className="text-sm font-semibold">{d.time}</div>
                     <div className="mt-2 truncate text-sm text-zinc-600">
-                      {d.medicationName} · {d.dosageText} · {d.amountText}
+                      {d.medicationName} · {d.dosageText} · {d.amountPerDose} {d.unit}
                     </div>
                   </div>
                 </div>

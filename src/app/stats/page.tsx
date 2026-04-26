@@ -166,7 +166,7 @@ export default function StatsPage() {
                       {d.date} {d.time} · {d.medicationName}
                     </div>
                     <div className="mt-1 text-sm text-zinc-600">
-                      {d.dosageText} · {d.amountText}
+                      {d.dosageText} · {d.amountPerDose} {d.unit}
                     </div>
                   </div>
                   <span className={d.status === "taken" ? "mm-pill" : d.status === "skipped" ? "mm-pill border-zinc-200 bg-zinc-50 text-zinc-700" : "mm-pill border-blue-200 bg-blue-50 text-blue-700"}>

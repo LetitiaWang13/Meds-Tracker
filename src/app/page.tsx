@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mmEnsureDemoSeed, mmLoadState, mmTodayKey, type MmDose } from "@/lib/mm-store";
+import { mmEnsureDemoSeed, mmFlattenFollowupAppointments, mmLoadState, mmTodayKey, type MmDose, type MmFollowup } from "@/lib/mm-store";
 
 export default function HomePage() {
   const now = new Date();
@@ -13,10 +13,15 @@ export default function HomePage() {
   }).format(now);
 
   const [doses, setDoses] = useState<MmDose[]>([]);
+  const [followups, setFollowups] = useState<MmFollowup[]>([]);
 
   useEffect(() => {
     mmEnsureDemoSeed();
-    const sync = () => setDoses(mmLoadState().doses);
+    const sync = () => {
+      const s = mmLoadState();
+      setDoses(s.doses);
+      setFollowups(s.followups);
+    };
     sync();
     window.addEventListener("mm:state", sync);
     return () => window.removeEventListener("mm:state", sync);
@@ -38,15 +43,30 @@ export default function HomePage() {
       detail: `${d.dosageText} · ${d.amountPerDose} ${d.unit}`
     }));
 
+  // TODO: 后续把这里改为真实库存预测；目前先保留示例提醒
   const refillAlerts = [
     { name: "氨氯地平片", left: 1, unit: "片", lead: 5, severity: "warn" as const },
     { name: "瑞舒伐他汀钙片", left: 18, unit: "片", lead: 5, severity: "warn" as const }
   ] as const;
 
-  const followups = [
-    { title: "心内科复诊", when: "今日 14:30", status: "today" as const },
-    { title: "血脂复查（预约）", when: "明日 09:00", status: "upcoming" as const }
-  ] as const;
+  const appts = useMemo(() => mmFlattenFollowupAppointments(followups), [followups]);
+  const followupItems = useMemo(() => {
+    const todayKey = mmTodayKey(now);
+    const upcoming = appts.filter((a) => a.atLocal.slice(0, 10) >= todayKey).slice(0, 3);
+    return upcoming.map((a) => {
+      const isToday = a.atLocal.slice(0, 10) === todayKey;
+      const when = isToday ? `今日 ${a.atLocal.slice(11, 16)}` : `${a.atLocal.slice(0, 10)} ${a.atLocal.slice(11, 16)}`;
+      const title =
+        [a.department, a.doctor].filter(Boolean).join(" · ") || "复诊/预约";
+      const location = a.location ? ` · ${a.location}` : "";
+      return {
+        title,
+        when: `${when}${location}`,
+        status: isToday ? ("today" as const) : ("upcoming" as const),
+        atLocal: a.atLocal
+      };
+    });
+  }, [appts, now]);
 
   const percent =
     medProgress.total === 0 ? 0 : Math.round((medProgress.done / medProgress.total) * 100);
@@ -75,7 +95,7 @@ export default function HomePage() {
   }
 
   const agendaItems = [
-    ...followups
+    ...followupItems
       .filter((f) => f.status === "today")
       .map((f) => {
         const at = parseTodayTime(f.when) ?? new Date(now);
@@ -258,11 +278,11 @@ export default function HomePage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">复查 / 预约</div>
-              <div className="mt-1 text-sm text-zinc-600">{followups.length} 项</div>
+              <div className="mt-1 text-sm text-zinc-600">{followupItems.length} 项</div>
             </div>
           </div>
           <div className="mt-4 space-y-3">
-            {followups.map((f) => (
+            {followupItems.map((f) => (
               <div
                 key={`${f.title}-${f.when}`}
                 className={[

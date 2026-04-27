@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { mmCanUndo, mmEnsureDemoSeed, mmLoadState, mmResetToDemo, mmSortDoses, mmTodayKey, mmUndoLastAction, mmUpdateDose, type MmDose } from "@/lib/mm-store";
+import { mmCanUndo, mmEnsureDemoSeed, mmLoadState, mmResetTodayPlan, mmSortDoses, mmTodayKey, mmUndoLastAction, mmUpdateDose, type MmDose } from "@/lib/mm-store";
 
 export default function TodayPage() {
   const [now, setNow] = useState(() => new Date());
@@ -69,9 +69,9 @@ export default function TodayPage() {
   }
 
   function onReset() {
-    const ok = window.confirm("确认重置？将清空当前本地数据并恢复到示例初始状态。");
+    const ok = window.confirm("确认重置今日计划？将只重置“今日用药”的列表与状态，不影响药品库/复诊等其它数据。");
     if (!ok) return;
-    mmResetToDemo();
+    mmResetTodayPlan();
   }
 
   return (
@@ -86,7 +86,7 @@ export default function TodayPage() {
             撤回操作
           </button>
           <button className="mm-btn-secondary" type="button" onClick={onReset}>
-            重置数据
+            重置今日计划
           </button>
           <a className="mm-btn-secondary" href="/stats">
             查看统计

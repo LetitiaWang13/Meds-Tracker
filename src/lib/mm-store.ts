@@ -26,6 +26,31 @@ export type MmPlan = {
   updatedAt: number;
 };
 
+export type MmFollowupAppointment = {
+  id: string;
+  atLocal: string; // yyyy-MM-ddTHH:mm (datetime-local)
+};
+
+export type MmFollowup = {
+  id: string;
+  department: string;
+  doctor: string;
+  location: string;
+  appointments: MmFollowupAppointment[]; // 单个或多个日期/时间
+  note: string;
+  updatedAt: number;
+};
+
+export type MmFollowupAppointmentFlat = {
+  followupId: string;
+  appointmentId: string;
+  atLocal: string; // yyyy-MM-ddTHH:mm
+  department: string;
+  doctor: string;
+  location: string;
+  note: string;
+};
+
 export type MmDose = {
   id: string;
   date: string; // YYYY-MM-DD (local)
@@ -56,6 +81,7 @@ export type MmState = {
   medications: MmMedication[];
   supplies: MmSupply[];
   plans: MmPlan[];
+  followups: MmFollowup[];
   doses: MmDose[];
   actions: MmAction[];
 };
@@ -84,15 +110,16 @@ export function mmSortDoses(a: MmDose, b: MmDose) {
 
 export function mmLoadState(): MmState {
   if (typeof window === "undefined") {
-    return { version: 1, medications: [], supplies: [], plans: [], doses: [], actions: [] };
+    return { version: 1, medications: [], supplies: [], plans: [], followups: [], doses: [], actions: [] };
   }
   const parsed = safeParse<MmState>(window.localStorage.getItem(STORAGE_KEY));
   if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.doses)) {
-    return { version: 1, medications: [], supplies: [], plans: [], doses: [], actions: [] };
+    return { version: 1, medications: [], supplies: [], plans: [], followups: [], doses: [], actions: [] };
   }
   if (!Array.isArray(parsed.medications)) parsed.medications = [];
   if (!Array.isArray(parsed.supplies)) parsed.supplies = [];
   if (!Array.isArray(parsed.plans)) parsed.plans = [];
+  if (!Array.isArray(parsed.followups)) parsed.followups = [];
   if (!Array.isArray(parsed.actions)) parsed.actions = [];
 
   // Backward-compat: older data used amountText like "2 粒"
@@ -136,6 +163,26 @@ export function mmClearState() {
 export function mmResetToDemo() {
   mmClearState();
   return mmEnsureDemoSeed();
+}
+
+export function mmResetTodayPlan(now = new Date()) {
+  const state = mmLoadState();
+  const today = mmTodayKey(now);
+
+  // 删除今日所有 dose（包含已服/跳过/延后），重新从 plan 生成
+  const remainingDoses = state.doses.filter((d) => d.date !== today);
+  const remainingDoseIds = new Set(remainingDoses.map((d) => d.id));
+  const remainingActions = (state.actions || []).filter((a) => remainingDoseIds.has(a.doseId));
+
+  const cleared: MmState = {
+    ...state,
+    doses: remainingDoses,
+    actions: remainingActions
+  };
+
+  const regenerated = mmEnsureDosesForDate(cleared, today);
+  mmSaveState(regenerated);
+  return regenerated;
 }
 
 function mmParseDate(date: string) {
@@ -251,7 +298,7 @@ function mmUpdateDoseDisplayForMedication(state: MmState, medicationId: string, 
 
 export function mmEnsureDemoSeed(now = new Date()) {
   const state = mmLoadState();
-  if (state.medications.length > 0 || state.plans.length > 0 || state.doses.length > 0) {
+  if (state.medications.length > 0 || state.plans.length > 0 || state.doses.length > 0 || state.followups.length > 0) {
     // 确保至少今天有 dose（新的一天打开也会生成）
     const today = mmTodayKey(now);
     const ensured = mmEnsureDosesForDate(state, today);
@@ -278,6 +325,7 @@ export function mmEnsureDemoSeed(now = new Date()) {
       { id: "plan-2", medicationId: "med-2", startDate: today, intervalDays: 1, times: ["12:00"], updatedAt: Date.now() + 1 },
       { id: "plan-3", medicationId: "med-3", startDate: today, intervalDays: 1, times: ["20:00"], updatedAt: Date.now() + 2 }
     ],
+    followups: [],
     doses: []
   };
 
@@ -481,6 +529,83 @@ export function mmAdjustSupply(medicationId: string, delta: number) {
   const current = existing?.onHand ?? 0;
   const nextOnHand = Math.max(0, Math.floor(current + delta));
   return mmUpdateSupply(medicationId, { onHand: nextOnHand });
+}
+
+export function mmAddFollowup(input: {
+  department: string;
+  doctor: string;
+  location: string;
+  appointments: { atLocal: string }[];
+  note: string;
+}) {
+  const state = mmLoadState();
+  const followup: MmFollowup = {
+    id: mmId("fu"),
+    department: input.department.trim(),
+    doctor: input.doctor.trim(),
+    location: input.location.trim(),
+    appointments: (input.appointments?.length ? input.appointments : [{ atLocal: "" }])
+      .filter((a) => a.atLocal.trim())
+      .map((a) => ({ id: mmId("appt"), atLocal: a.atLocal.trim() }))
+      .sort((a, b) => a.atLocal.localeCompare(b.atLocal)),
+    note: input.note ?? "",
+    updatedAt: Date.now()
+  };
+  const next = { ...state, followups: [...state.followups, followup] } satisfies MmState;
+  mmSaveState(next);
+  return next;
+}
+
+export function mmUpdateFollowup(id: string, patch: Partial<Pick<MmFollowup, "department" | "doctor" | "location" | "appointments" | "note">>) {
+  const state = mmLoadState();
+  const next = {
+    ...state,
+    followups: state.followups.map((f) => {
+      if (f.id !== id) return f;
+      const appointments =
+        patch.appointments
+          ? patch.appointments
+              .filter((a) => a.atLocal.trim())
+              .map((a) => ({ id: a.id || mmId("appt"), atLocal: a.atLocal.trim() }))
+              .sort((a, b) => a.atLocal.localeCompare(b.atLocal))
+          : f.appointments;
+      return {
+        ...f,
+        department: patch.department !== undefined ? patch.department.trim() : f.department,
+        doctor: patch.doctor !== undefined ? patch.doctor.trim() : f.doctor,
+        location: patch.location !== undefined ? patch.location.trim() : f.location,
+        appointments,
+        note: patch.note !== undefined ? patch.note : f.note,
+        updatedAt: Date.now()
+      };
+    })
+  } satisfies MmState;
+  mmSaveState(next);
+  return next;
+}
+
+export function mmDeleteFollowup(id: string) {
+  const state = mmLoadState();
+  const next = { ...state, followups: state.followups.filter((f) => f.id !== id) } satisfies MmState;
+  mmSaveState(next);
+  return next;
+}
+
+export function mmFlattenFollowupAppointments(followups: MmFollowup[]): MmFollowupAppointmentFlat[] {
+  return followups
+    .flatMap((f) =>
+      (f.appointments || []).map((a) => ({
+        followupId: f.id,
+        appointmentId: a.id,
+        atLocal: a.atLocal,
+        department: f.department,
+        doctor: f.doctor,
+        location: f.location,
+        note: f.note
+      }))
+    )
+    .filter((x) => x.atLocal)
+    .sort((a, b) => a.atLocal.localeCompare(b.atLocal));
 }
 
 export function mmCanUndo() {

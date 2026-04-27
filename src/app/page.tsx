@@ -197,7 +197,7 @@ export default function HomePage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="mm-card-compact">
+        <div className="mm-card-compact flex flex-col">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">待服药</div>
@@ -215,14 +215,14 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-auto pt-4">
             <a className="mm-btn-secondary w-full" href="/today">
               查看今日列表
             </a>
           </div>
         </div>
 
-        <div className="mm-card-compact">
+        <div className="mm-card-compact flex flex-col">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">该买药/续方</div>
@@ -247,14 +247,14 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-auto pt-4">
             <a className="mm-btn-secondary w-full" href="/medications">
               去药品库更新库存
             </a>
           </div>
         </div>
 
-        <div className="mm-card-compact">
+        <div className="mm-card-compact flex flex-col">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold">复查 / 预约</div>
@@ -282,7 +282,7 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-auto pt-4">
             <a className="mm-btn-secondary w-full" href="/followups">
               去复诊计划
             </a>
